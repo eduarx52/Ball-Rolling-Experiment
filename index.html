@@ -124,36 +124,22 @@
             const rampLength = parseFloat(rampLengthInput.value);
             const rampAngle = parseFloat(rampAngleInput.value) * (Math.PI / 180); // Convert to radians
 
-            // Calculate the height of the ramp
-            const rampHeight = rampLength * Math.sin(rampAngle);
-
-            // For a solid sphere rolling without slipping, the total kinetic energy is the sum of translational and rotational kinetic energy
-            // The moment of inertia of a solid sphere is I = (2/5) * m * r², and the relationship between angular velocity ω and linear velocity v is ω = v/r
-            // Total kinetic energy K = (1/2) * m * v²+(1/2) * I * ω²=(1/2) * m * v²+(1/2) * (2/5) * m * r² * (v/r)²=(7/10) * m * v²
-            // Using conservation of energy m * g * h=(7/10) * m * v², we can find the final velocity v
-            const finalVelocity = Math.sqrt((10 * g * rampHeight) / 7);
-
-            // The average velocity for uniformly - accelerated motion on a ramp is v_avg = v/2
-            const averageVelocity = finalVelocity / 2;
-
-            // Calculate the time taken
-            const timeToReach = rampLength / averageVelocity;
-
-            const numSteps = 100;
-            const stepTime = timeToReach / numSteps;
-            const stepLength = rampLength / numSteps;
+            const a = (5 / 7) * g * Math.sin(rampAngle);
+            const dt = 0.01; // Time step
+            let x = 0;
+            let v = 0;
             const scale = 200;
 
-            let currentStep = 0;
-            function moveBall() {
-                if (currentStep < numSteps) {
-                    const currentLength = stepLength * currentStep;
-                    const currentX = currentLength * scale * Math.cos(rampAngle);
-                    const currentY = 200 - currentLength * scale * Math.sin(rampAngle);
-                    ball1.style.left = `${currentX - 15}px`;
-                    ball1.style.bottom = `${currentY - 15}px`;
-                    currentStep++;
-                    setTimeout(moveBall, stepTime * 1000);
+            function updateMotion() {
+                v = v + a * dt;
+                x = x + v * dt;
+                const currentX = x * scale * Math.cos(rampAngle);
+                const currentY = 200 - x * scale * Math.sin(rampAngle);
+                ball1.style.left = `${currentX - 15}px`;
+                ball1.style.bottom = `${currentY - 15}px`;
+
+                if (x < rampLength) {
+                    setTimeout(updateMotion, dt * 1000);
                 } else {
                     clearInterval(timer);
                     startButton.disabled = false;
@@ -166,7 +152,7 @@
                 timerDisplay.innerHTML = `Time: ${elapsedTime}s`;
             }, 1000);
 
-            moveBall();
+            updateMotion();
         }
 
         function resetBalls() {
