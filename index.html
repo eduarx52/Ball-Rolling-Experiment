@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ball Rolling Experiment</title>
+    <title>Ball Rolling on Adjustable Ramp</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -11,53 +12,67 @@
             margin: 0;
             padding: 0;
         }
-        .track {
-            position: relative;
-            width: 300px;
-            height: 100px;
-            margin: 20px auto;
-            background: linear-gradient(to right, #d3d3d3 50%, #87cefa 50%);
-            border-radius: 10px;
+
+       .input-container {
+            margin-top: 20px;
         }
-        .ball {
+
+       .track-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+       .track {
+            position: relative;
+            width: 400px;
+            height: 200px;
+            background: #d3d3d3;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+       .ball {
             position: absolute;
-            bottom: 10px;
+            bottom: 0;
             left: 0;
             width: 30px;
             height: 30px;
             border-radius: 50%;
             background-color: red;
-            transition: left 2s ease-out;
         }
-        .button-container {
-            margin-top: 20px;
-        }
+
         #timer {
             font-size: 24px;
             margin-top: 20px;
         }
     </style>
 </head>
+
 <body>
 
-    <h1>Ball Rolling Experiment</h1>
-    
-    <div class="track" id="track1">
-        <div class="ball" id="ball1"></div>
-    </div>
-    <div class="track" id="track2">
-        <div class="ball" id="ball2"></div>
-    </div>
-    <div class="track" id="track3">
-        <div class="ball" id="ball3"></div>
-    </div>
-    
-    <div class="button-container">
+    <h1>Ball Rolling on Adjustable Ramp</h1>
+
+    <div class="input-container">
         <label for="ballWeight">Ball Weight (kg): </label>
         <input type="number" id="ballWeight" value="1" min="0.1" step="0.1">
         <br>
-        <button id="startButton">Start</button>
+        <label for="rampLength">Ramp Length (m): </label>
+        <input type="number" id="rampLength" value="1" min="0.1" step="0.1">
+        <br>
+        <label for="rampAngle">Ramp Angle (degrees): </label>
+        <input type="number" id="rampAngle" value="30" min="1" max="90" step="1" oninput="drawRamp()">
     </div>
+
+    <div class="track-container">
+        <div class="track" id="track1">
+            <svg id="rampSvg" width="400" height="200"></svg>
+            <div class="ball" id="ball1"></div>
+        </div>
+    </div>
+
+    <button id="startButton">Start</button>
+    <button id="restartButton">Restart</button>
 
     <div id="timer">Time: 0s</div>
 
@@ -65,12 +80,39 @@
         let timer;
         let elapsedTime = 0;
         let startButton = document.getElementById("startButton");
+        let restartButton = document.getElementById("restartButton");
         let timerDisplay = document.getElementById("timer");
         let ball1 = document.getElementById("ball1");
-        let ball2 = document.getElementById("ball2");
-        let ball3 = document.getElementById("ball3");
+        let ballWeightInput = document.getElementById("ballWeight");
+        let rampLengthInput = document.getElementById("rampLength");
+        let rampAngleInput = document.getElementById("rampAngle");
+        let rampSvg = document.getElementById("rampSvg");
 
         startButton.addEventListener("click", startExperiment);
+        restartButton.addEventListener("click", resetExperiment);
+
+        // Constants
+        const g = 9.81;  // Earth's gravitational pull (m/s²)
+
+        function drawRamp() {
+            const angle = parseFloat(rampAngleInput.value);
+            const rad = angle * (Math.PI / 180);
+            const length = parseFloat(rampLengthInput.value);
+            const scale = 200; // Scale factor to fit the SVG size
+
+            const x2 = length * scale * Math.cos(rad);
+            const y2 = length * scale * Math.sin(rad);
+
+            rampSvg.innerHTML = '';
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', 0);
+            line.setAttribute('y1', 200);
+            line.setAttribute('x2', x2);
+            line.setAttribute('y2', 200 - y2);
+            line.setAttribute('stroke', 'black');
+            line.setAttribute('stroke - width', 2);
+            rampSvg.appendChild(line);
+        }
 
         function startExperiment() {
             resetBalls();
@@ -78,41 +120,72 @@
             timerDisplay.innerHTML = `Time: ${elapsedTime}s`;
             startButton.disabled = true;
 
+            const ballWeight = parseFloat(ballWeightInput.value);
+            const rampLength = parseFloat(rampLengthInput.value);
+            const rampAngle = parseFloat(rampAngleInput.value) * (Math.PI / 180); // Convert to radians
+
+            // Calculate the height of the ramp
+            const rampHeight = rampLength * Math.sin(rampAngle);
+
+            // For a solid sphere rolling without slipping, the total kinetic energy is the sum of translational and rotational kinetic energy
+            // The moment of inertia of a solid sphere is I = (2/5) * m * r², and the relationship between angular velocity ω and linear velocity v is ω = v/r
+            // Total kinetic energy K = (1/2) * m * v²+(1/2) * I * ω²=(1/2) * m * v²+(1/2) * (2/5) * m * r² * (v/r)²=(7/10) * m * v²
+            // Using conservation of energy m * g * h=(7/10) * m * v², we can find the final velocity v
+            const finalVelocity = Math.sqrt((10 * g * rampHeight) / 7);
+
+            // The average velocity for uniformly - accelerated motion on a ramp is v_avg = v/2
+            const averageVelocity = finalVelocity / 2;
+
+            // Calculate the time taken
+            const timeToReach = rampLength / averageVelocity;
+
+            const numSteps = 100;
+            const stepTime = timeToReach / numSteps;
+            const stepLength = rampLength / numSteps;
+            const scale = 200;
+
+            let currentStep = 0;
+            function moveBall() {
+                if (currentStep < numSteps) {
+                    const currentLength = stepLength * currentStep;
+                    const currentX = currentLength * scale * Math.cos(rampAngle);
+                    const currentY = 200 - currentLength * scale * Math.sin(rampAngle);
+                    ball1.style.left = `${currentX - 15}px`;
+                    ball1.style.bottom = `${currentY - 15}px`;
+                    currentStep++;
+                    setTimeout(moveBall, stepTime * 1000);
+                } else {
+                    clearInterval(timer);
+                    startButton.disabled = false;
+                }
+            }
+
             // Start the timer
             timer = setInterval(() => {
                 elapsedTime++;
                 timerDisplay.innerHTML = `Time: ${elapsedTime}s`;
             }, 1000);
 
-            // Roll the balls
-            rollBall(ball1, 1);
-            rollBall(ball2, 1.5);
-            rollBall(ball3, 2);
-        }
-
-        function rollBall(ball, weight) {
-            // Adjust the speed based on the weight of the ball (just a simulation for now)
-            let speed = 2 / weight;
-            ball.style.transitionDuration = `${speed}s`;
-
-            // Move the ball along the track
-            ball.style.left = "100%";
-            
-            // Once the ball reaches the end, stop the timer
-            setTimeout(() => {
-                if (ball === ball3) { 
-                    clearInterval(timer); // Stop the timer when the last ball reaches the end
-                    startButton.disabled = false;
-                }
-            }, speed * 1000);
+            moveBall();
         }
 
         function resetBalls() {
             ball1.style.left = "0";
-            ball2.style.left = "0";
-            ball3.style.left = "0";
+            ball1.style.bottom = "0";
         }
+
+        function resetExperiment() {
+            resetBalls();
+            elapsedTime = 0;
+            timerDisplay.innerHTML = `Time: ${elapsedTime}s`;
+            startButton.disabled = false;
+            clearInterval(timer);
+        }
+
+        // Draw the initial ramp
+        drawRamp();
     </script>
 
 </body>
+
 </html>
